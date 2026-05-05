@@ -1,7 +1,7 @@
 // ============================
 // URL Google Apps Script
 // ============================
-const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyURv5GxciH9nH9yEtVu7Z17MyWtpVAq2H4VnTKAklf76jPMAU3iPrwSCijMR_zGgPuMQ/exec";
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyLGHBFeMGDY5d7pJgW-wEwX-z_J2iwwyrldY3DeWDVnQ56KtsF7I2V2sDHHyhxg6W9/exec";
 
 // Elemen tabel
 const tbody = document.querySelector("#tabelData tbody");
