@@ -32,8 +32,6 @@ function doGet(e){
 ========================= */
 function doPost(e) {
   let d;
-  
-  // Deteksi sumber data: JSON atau URLSearchParams (Parameter)
   if (e.postData && e.postData.contents) {
     try {
       d = JSON.parse(e.postData.contents);
@@ -44,7 +42,6 @@ function doPost(e) {
     d = e.parameter;
   }
 
-  // Router Action berdasarkan parameter 'action' atau 'mode'
   const action = d.action || d.mode || "insert";
 
   if (action === "insert") return insertData(d);
@@ -74,14 +71,15 @@ function login(e){
 }
 
 /* =========================
-   CARI ROW BERDASARKAN SP2D
+   CARI ROW BERDASARKAN SP2D (Posisi Kolom D / Indeks 3)
 ========================= */
 function findRowBySp2d(sh, sp2d){
   if (!sp2d) return -1;
   const data = sh.getDataRange().getValues();
   const target = normalizeSp2d(sp2d);
   for(let i=1; i<data.length; i++){
-    if(normalizeSp2d(data[i][2]) === target){
+    // Kolom D = Indeks 3
+    if(normalizeSp2d(data[i][3]) === target){
       return i+1;
     }
   }
@@ -89,10 +87,12 @@ function findRowBySp2d(sh, sp2d){
 }
 
 /* =========================
-   GET DATA PENYALURAN
+   GET DATA DENGAN FILTER KABUPATEN
 ========================= */
 function getData(e){
   const tahun = e.parameter.tahun;
+  const wewenang = e.parameter.wewenang;
+  
   if(!tahun) return json({status:"error", message:"tahun wajib"});
 
   const sh = SpreadsheetApp.getActive().getSheetByName(tahun);
@@ -102,17 +102,26 @@ function getData(e){
   if(data.length < 2) return json({status:"ok", data: []});
 
   const header = data.shift();
-  const result = data.map(r=>{
+  
+  // Filter data berdasarkan kolom 'kabupaten' (Kolom B / Indeks 1)
+  const filteredData = data.filter(r => {
+    if (!wewenang || wewenang === "Semua") return true;
+    return r[1].toString().trim().toLowerCase() === wewenang.toString().trim().toLowerCase();
+  });
+
+  const result = filteredData.map(r=>{
     let obj = {};
     header.forEach((h,i)=>obj[h]=r[i]);
-    obj.rowId = findRowBySp2d(sh, obj["Nomor SP2D"] || r[2]); 
+    // Mencari baris asli untuk keperluan edit/hapus
+    obj.rowId = findRowBySp2d(sh, obj["Nomor SP2D"] || r[3]); 
     return obj;
   });
+  
   return json({status:"ok", data: result});
 }
 
 /* =========================
-   INSERT DATA PENYALURAN
+   INSERT DATA (Kolom Sesuai Screenshot)
 ========================= */
 function insertData(d){
   const ss = SpreadsheetApp.getActive();
@@ -120,65 +129,65 @@ function insertData(d){
   
   if(!sh) {
     sh = ss.insertSheet(d.tahun);
-    sh.appendRow(["Jenis", "triwulan", "Nomor SP2D", "Tanggal SP2D", "Bruto", "PPh", "Jkn", "Jml", "link"]);
+    sh.appendRow(["Jenis", "kabupaten", "triwulan", "Nomor SP2D", "Tanggal SP2D", "Bruto", "PPh", "Jkn", "Jml", "Link Drive Penerima"]);
   }
 
   const cek = findRowBySp2d(sh, d.nomorSp2d);
   if(cek !== -1) return json({status:"error", message:"Nomor SP2D sudah ada!"});
 
   sh.appendRow([
-    d.jenis, d.triwulan, d.nomorSp2d, d.tanggalSp2d,
-    Number(d.bruto) || 0, Number(d.pph) || 0, Number(d.jkn) || 0, Number(d.jml) || 0, d.link
+    d.jenis, 
+    d.kabupaten, 
+    d.triwulan, 
+    d.nomorSp2d, 
+    d.tanggalSp2d,
+    Number(d.bruto) || 0, 
+    Number(d.pph) || 0, 
+    Number(d.jkn) || 0, 
+    Number(d.jml) || 0, 
+    d.link
   ]);
   return json({status:"ok", message:"Data berhasil disimpan"});
 }
 
 /* =========================
-   UPDATE & DELETE
+   UPDATE & DELETE (PAGU TETAP)
 ========================= */
 function deleteData(d){
   const ss = SpreadsheetApp.getActive();
-  // Pastikan parameter tahun ada
   const tahun = d.tahun; 
   if(!tahun) return json({status:"error", message:"Parameter tahun tidak terdeteksi"});
 
   const sh = ss.getSheetByName(tahun);
   if(!sh) return json({status:"error", message:"Sheet tahun " + tahun + " tidak ditemukan"});
 
-  // 1. Coba cari berdasarkan rowId (pastikan dikonversi ke angka)
   let row = -1;
   if (d.rowId && !isNaN(d.rowId)) {
     row = Number(d.rowId);
   } 
   
-  // 2. Jika rowId gagal/tidak ada, cari manual berdasarkan nomorSp2d
   if (row <= 1) { 
     row = findRowBySp2d(sh, d.nomorSp2d);
   }
 
-  // 3. Validasi akhir sebelum hapus
   if(row > 1){
     sh.deleteRow(row);
-    return json({status:"ok", message:"Data pada baris " + row + " berhasil dihapus"});
+    return json({status:"ok", message:"Data berhasil dihapus"});
   } else {
-    return json({status:"error", message:"Data tidak ditemukan di sheet " + tahun + ". Periksa No SP2D: " + d.nomorSp2d});
+    return json({status:"error", message:"Data tidak ditemukan"});
   }
 }
 
-/* =========================
-   PAGU: GET & UPDATE
-========================= */
 function getPagu(){
   const sh = SpreadsheetApp.getActive().getSheetByName("pagu");
   if(!sh) return json({status:"error", message:"Sheet pagu tidak ada"});
   const data = sh.getDataRange().getValues();
   const header = data.shift();
-  const result = data.map(r=>{
+  return json({status:"ok", data: data.map(r=>{
     let obj = {};
     header.forEach((h,i)=>obj[h]=r[i]);
     return obj;
-  });
-  return json({status:"ok", data: result});
+  })});
 }
 
 function updatePagu(d) {
@@ -197,7 +206,6 @@ function updatePagu(d) {
   }
 
   const values = [d.tahun, Number(d.paguTPG), Number(d.paguTamsil), Number(d.paguTKG), new Date()];
-
   if (rowToEdit !== -1) {
     sh.getRange(rowToEdit, 1, 1, 5).setValues([values]);
   } else {
