@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -126,6 +125,7 @@
 </div>
 
 <script>
+// URL API ini sudah sesuai dengan ID yang kamu lampirkan di code sebelumnya
 const API = "https://script.google.com/macros/s/AKfycbyLGHBFeMGDY5d7pJgW-wEwX-z_J2iwwyrldY3DeWDVnQ56KtsF7I2V2sDHHyhxg6W9/exec";
 
 window.onload = () => {
@@ -177,13 +177,15 @@ async function login() {
             return;
         }
 
-        // Simpan Session
+        // SIMPAN SESSION (PENTING: Menggunakan 'wewenang' agar sinkron dengan Apps Script)
         sessionStorage.setItem("logged", "yes");
-        sessionStorage.setItem("role", data.wewenang);
+        sessionStorage.setItem("wewenang", data.wewenang); 
         sessionStorage.setItem("tahun", t);
 
-        // Redirect berdasarkan Wewenang
-        if(data.wewenang === "Admin") {
+        // REDIRECT BERDASARKAN WEWENANG
+        // Jika wewenang adalah "Semua" (Kasi), buka halaman yang ada grafiknya (rincian2.html)
+        // Selain itu (Bendahara Kabupaten), buka halaman tabel rincian (rincian.html)
+        if(data.wewenang === "Semua") {
             window.location.href = "rincian2.html";
         } else {
             window.location.href = "rincian.html";
