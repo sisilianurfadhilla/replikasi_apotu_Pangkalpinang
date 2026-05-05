@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Pagu – Admin</title>
+    <link rel="stylesheet" href="style.css">
+
+    <script>
+        // =============================
+        // PROTEKSI HALAMAN
+        // =============================
+        if (sessionStorage.getItem("logged") !== "yes") {
+            location.href = "login.html";
+        }
+        if (sessionStorage.getItem("role") !== "Admin") {
+            location.href = "rincian.html";
+        }
+    </script>
+
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; margin: 0; padding: 20px; }
+        .card { max-width: 500px; margin: auto; padding: 25px; border-radius: 16px; background: white; box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+        .page-title { text-align: center; background: #1d3557; padding: 14px; color: white; border-radius: 12px; margin-bottom: 24px; font-size: 20px; font-weight: bold; }
+        label { font-weight: 600; margin-top: 15px; display: block; color: #1d3557; }
+        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #cfd3d8; margin-top: 6px; margin-bottom: 10px; font-size: 15px; box-sizing: border-box; }
+        .btn { padding: 12px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: 0.3s; }
+        .btn-primary { background: #1d3557; color: white; width: 100%; margin-top: 10px; font-size: 16px; }
+        .btn-primary:hover { background: #457b9d; }
+        .btn-primary:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-back { background: #6c757d; color: white; text-decoration: none; font-size: 14px; }
+        .buttons-top { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .success, .error { padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; margin-top: 15px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        @media(max-width:600px){ .buttons-top { flex-direction: column; } }
+    </style>
+</head>
+<body>
+
+<div class="buttons-top">
+    <button class="btn btn-back" onclick="location.href='rincian2.html'">⬅ Kembali ke Rincian</button>
+    <button class="btn btn-back" onclick="logout()">Logout</button>
+</div>
+
+<div class="page-title">Pengaturan Pagu Anggaran</div>
+
+<div class="card">
+    <form id="paguForm">
+        <label for="tahun">Pilih Tahun Anggaran</label>
+        <select id="tahun" required>
+            <option value="">-- Pilih Tahun --</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+            <option value="2028">2028</option>
+        </select>
+
+        <label for="paguTPG">Pagu TPG (Rp)</label>
+        <input type="number" id="paguTPG" required min="0" placeholder="Masukkan nilai tanpa titik/koma">
+
+        <label for="paguTamsil">Pagu Tamsil (Rp)</label>
+        <input type="number" id="paguTamsil" required min="0" placeholder="Masukkan nilai tanpa titik/koma">
+
+        <label for="paguTKG">Pagu TKG (Rp)</label>
+        <input type="number" id="paguTKG" required min="0" placeholder="Masukkan nilai tanpa titik/koma">
+
+        <button type="submit" class="btn btn-primary" id="submitButton">Simpan Data Pagu</button>
+    </form>
+
+    <div id="message"></div>
+</div>
+
+<script>
+    // PASTIKAN URL INI ADALAH URL TERBARU DARI "NEW DEPLOYMENT" APPS SCRIPT ANDA
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw76XEewiWIhB6COJB_5p7M2TkFZK0L0NHxns9N9K16Qi22tewp59g_aPGiTMfurVtS/exec";
+
+    const form = document.getElementById("paguForm");
+    const messageBox = document.getElementById("message");
+    const submitButton = document.getElementById("submitButton");
+
+    form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        // Mengumpulkan data payload sesuai struktur Apps Script
+        const payload = {
+            action: "updatePagu", // Aksi khusus untuk update sheet pagu
+            tahun: document.getElementById("tahun").value,
+            paguTPG: document.getElementById("paguTPG").value,
+            paguTamsil: document.getElementById("paguTamsil").value,
+            paguTKG: document.getElementById("paguTKG").value
+        };
+
+        submitButton.disabled = true;
+        submitButton.innerText = "⌛ Memproses...";
+        messageBox.innerHTML = "";
+
+        try {
+            // Mengirim data menggunakan URLSearchParams agar masuk ke e.parameter di Apps Script
+            await fetch(WEB_APP_URL, {
+                method: "POST",
+                mode: "no-cors",
+                cache: "no-cache",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(payload)
+            });
+
+            // Karena mode no-cors, kita anggap sukses jika tidak masuk ke catch
+            messageBox.innerHTML = `<div class="success">Pagu Tahun ${payload.tahun} Berhasil Diperbarui!</div>`;
+
+            setTimeout(() => {
+                location.href = "rincian2.html";
+            }, 2000);
+
+        } catch (err) {
+            messageBox.innerHTML = `<div class="error">Gagal menyimpan: ${err.message}</div>`;
+            submitButton.disabled = false;
+            submitButton.innerText = "Simpan Data Pagu";
+        }
+    });
+
+    function logout() {
+        sessionStorage.clear();
+        location.href = "login.html";
+    }
+</script>
+
+</body>
+</html>

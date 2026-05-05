@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konfirmasi Hapus Data</title>
+    <link rel="stylesheet" href="style.css">
+    <script>
+        if (sessionStorage.getItem("logged") !== "yes") location.href = "login.html";
+        if (sessionStorage.getItem("role") !== "Admin") location.href = "rincian.html";
+    </script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 400px; width: 90%; text-align: center; }
+        .icon-warn { font-size: 50px; color: #e63946; margin-bottom: 15px; }
+        h2 { margin: 0 0 10px 0; color: #1d3557; }
+        p { color: #457b9d; margin-bottom: 25px; line-height: 1.5; }
+        .info-data { background: #f1faee; padding: 10px; border-radius: 8px; border: 1px solid #a8dadc; margin-bottom: 25px; font-weight: bold; color: #1d3557; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .btn-confirm { background: #e63946; color: white; }
+        .btn-confirm:hover { background: #c1121f; }
+        .btn-cancel { background: #6c757d; color: white; }
+        #notif { margin-top: 15px; font-size: 14px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="icon-warn">⚠️</div>
+    <h2>Hapus Data?</h2>
+    <p>Apakah Anda yakin ingin menghapus data SP2D berikut?</p>
+    <div id="dataDisplay" class="info-data">Memuat informasi...</div>
+    <div class="btn-group">
+        <button class="btn btn-cancel" onclick="location.href='rincian2.html'">Batal</button>
+        <button id="btnHapus" class="btn btn-confirm" onclick="prosesHapus()">Ya, Hapus</button>
+    </div>
+    <div id="notif"></div>
+</div>
+
+<script>
+    // 1. Ambil parameter dari URL saat halaman dimuat
+    const params = new URLSearchParams(window.location.search);
+    const rowId = params.get("id");
+    const noSp2d = params.get("no");
+    const tahun = params.get("tahun");
+
+    window.onload = () => {
+        if (!rowId || !tahun) {
+            document.getElementById("dataDisplay").innerText = "Error: Data Tidak Valid (Tahun/ID Kosong)";
+            document.getElementById("btnHapus").disabled = true;
+        } else {
+            document.getElementById("dataDisplay").innerText = `Tahun: ${tahun}\nNo. SP2D: ${noSp2d || 'N/A'}`;
+        }
+    };
+
+    async function prosesHapus() {
+        // 2. PASTIKAN URL INI ADALAH URL "NEW DEPLOYMENT" TERBARU
+        const url = "https://script.google.com/macros/s/AKfycbw76XEewiWIhB6COJB_5p7M2TkFZK0L0NHxns9N9K16Qi22tewp59g_aPGiTMfurVtS/exec";
+        
+        const btn = document.getElementById("btnHapus");
+        const notif = document.getElementById("notif");
+
+        btn.disabled = true;
+        btn.innerText = "⏳ Menghapus...";
+
+        // 3. Payload harus mengirim 'action' agar terbaca oleh doPost Apps Script
+        const payload = {
+            action: "delete",
+            rowId: rowId,
+            tahun: tahun,
+            nomorSp2d: noSp2d 
+        };
+
+        try {
+            await fetch(url, {
+                method: "POST",
+                mode: "no-cors", // Apps Script membutuhkan mode ini untuk POST silang domain
+                cache: "no-cache",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: new URLSearchParams(payload)
+            });
+
+            // Karena mode no-cors, kita tidak bisa baca respon JSON, maka langsung asumsikan proses jalan
+            notif.style.color = "#2a9d8f";
+            notif.innerText = "✅ Perintah Hapus Terkirim! Mengalihkan...";
+
+            setTimeout(() => {
+                location.href = "rincian2.html";
+            }, 2000);
+
+        } catch (err) {
+            notif.style.color = "#e63946";
+            notif.innerText = "❌ Gagal: " + err.message;
+            btn.disabled = false;
+            btn.innerText = "Ya, Hapus";
+        }
+    }
+</script>
+</body>
+</html>

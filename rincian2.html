@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rincian Penyaluran – Admin</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Penyelarasan tampilan agar konsisten dengan dashboard utama */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background:#f4f7f9; margin:0; padding:20px; }
+        .page-title { text-align:center; font-size:26px; font-weight:bold; color:#1d3557; margin-bottom:20px; }
+        .card { background:white; padding:20px; border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.05); margin-bottom:20px; }
+        .filters { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
+        
+        select, .btn { padding:10px 15px; border-radius:8px; border:1px solid #ccc; font-size:14px; }
+        .btn { cursor:pointer; font-weight:600; transition: 0.3s; border:none; }
+        .btn-primary { background:#1d3557; color:white; }
+        .btn-primary:hover { background:#457b9d; }
+        .btn-secondary { background:#2a9d8f; color:white; }
+        .btn-warning { background:#e9c46a; color:#1d3557; }
+        .btn-danger { background:#e63946; color:white; }
+        .btn-back { background:#6c757d; color:white; margin-bottom:15px; }
+
+        .table-wrapper { background:white; border-radius:12px; overflow-x:auto; box-shadow:0 4px 12px rgba(0,0,0,0.05); }
+        table { width:100%; border-collapse:collapse; min-width:1000px; }
+        th, td { padding:12px 15px; border-bottom:1px solid #eee; text-align:left; font-size:14px; }
+        th { background:#1d3557; color:white; text-transform:uppercase; font-size:12px; }
+        
+        .txt-right { text-align: right; }
+        .txt-center { text-align: center; }
+        .btn-hapus-small { background:#e63946; color:white; padding:5px 10px; border-radius:4px; font-size:11px; text-decoration:none; }
+
+        tfoot tr td { background:#f8f9fa; font-weight:bold; color:#1d3557; }
+        #loading { text-align:center; padding:20px; display:none; font-weight:bold; color:#1d3557; }
+    </style>
+
+    <script>
+        // Proteksi Level Admin
+        if(sessionStorage.getItem("logged") !== "yes"){
+            location.href = "login.html";
+        }
+        if(sessionStorage.getItem("role") !== "Admin"){
+            location.href = "rincian.html";
+        }
+    </script>
+</head>
+
+<body>
+
+    <button class="btn btn-back" onclick="location.href='index.html'">⬅ Kembali ke Dashboard</button>
+    <div class="page-title">Rincian Penyaluran – Panel Admin</div>
+
+    <div class="card">
+        <div class="filters">
+            <select id="jenisFilter">
+                <option value="ALL">Semua Jenis</option>
+                <option value="TPG">TPG</option>
+                <option value="TKG">TKG</option>
+                <option value="Tamsil">Tamsil</option>
+            </select>
+
+            <select id="triwulanFilter">
+                <option value="ALL">Semua Triwulan</option>
+                <option value="1">Triwulan I</option>
+                <option value="2">Triwulan II</option>
+                <option value="3">Triwulan III</option>
+                <option value="4">Triwulan IV</option>
+            </select>
+
+            <select id="tahunFilter">
+                <option value="2025">Tahun 2025</option>
+                <option value="2026" selected>Tahun 2026</option>
+            </select>
+
+            <button class="btn btn-primary" onclick="loadData()">Tampilkan</button>
+            <button class="btn btn-secondary" onclick="location.href='input.html'">+ Input Data</button>
+            <button class="btn btn-warning" onclick="location.href='inputPagu.html'">⚙ Pagu</button>
+            <button class="btn btn-danger" onclick="logout()">Logout</button>
+        </div>
+    </div>
+
+    <div id="loading">⏳ Memproses Data...</div>
+
+    <div class="table-wrapper">
+        <table id="tabelData">
+            <thead>
+                <tr>
+                    <th>Jenis</th>
+                    <th class="txt-center">TW</th>
+                    <th>No. SP2D</th>
+                    <th>Tanggal</th>
+                    <th class="txt-right">Bruto (Rp)</th>
+                    <th class="txt-right">PPh (Rp)</th>
+                    <th class="txt-right">JKN (Rp)</th>
+                    <th class="txt-right">Penerima</th>
+                    <th class="txt-center">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td colspan="9" class="txt-center">Klik "Tampilkan" untuk memuat data.</td></tr>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="txt-right">TOTAL KESELURUHAN</td>
+                    <td id="sumBruto" class="txt-right">0</td>
+                    <td id="sumPPh" class="txt-right">0</td>
+                    <td id="sumJKN" class="txt-right">0</td>
+                    <td id="sumPenerima" class="txt-right">0</td>
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbw76XEewiWIhB6COJB_5p7M2TkFZK0L0NHxns9N9K16Qi22tewp59g_aPGiTMfurVtS/exec";
+
+        async function loadData() {
+            const loading = document.getElementById("loading");
+            const tbody = document.querySelector("#tabelData tbody");
+            const fJenis = document.getElementById("jenisFilter").value;
+            const fTW = document.getElementById("triwulanFilter").value;
+            const fTahun = document.getElementById("tahunFilter").value;
+
+            loading.style.display = "block";
+            tbody.innerHTML = '<tr><td colspan="9" class="txt-center">Sedang mengambil data...</td></tr>';
+
+            try {
+                // Mengambil data berdasarkan tahun yang dipilih
+                const response = await fetch(`${API_URL}?mode=list&tahun=${fTahun}`);
+                const result = await response.json();
+
+                if (result.status !== "ok") throw new Error(result.message);
+
+                // Filter Keamanan: Hanya proses baris yang memiliki Jenis valid
+                let data = result.data.filter(item => ["TPG", "TKG", "Tamsil"].includes(item["Jenis"]));
+
+                // Filter berdasarkan pilihan dropdown
+                if (fJenis !== "ALL") data = data.filter(d => d.Jenis === fJenis);
+                if (fTW !== "ALL") data = data.filter(d => String(d.triwulan) === fTW);
+
+                renderTable(data);
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="9" class="txt-center" style="color:red;">Kesalahan: ${e.message}</td></tr>`;
+            } finally {
+                loading.style.display = "none";
+            }
+        }
+
+        function renderTable(data) {
+            const tbody = document.querySelector("#tabelData tbody");
+            tbody.innerHTML = "";
+            
+            let totalBruto = 0, totalPPh = 0, totalJKN = 0, totalPenerima = 0;
+
+            if (data.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="9" class="txt-center">Tidak ada data penyaluran.</td></tr>';
+            } else {
+                data.forEach(item => {
+                    const bruto = Number(item["Bruto"]) || 0;
+                    const pph = Number(item["PPh"]) || 0;
+                    const jkn = Number(item["Jkn"]) || 0;
+                    const jml = Number(item["Jml"]) || 0;
+
+                    totalBruto += bruto; 
+                    totalPPh += pph; 
+                    totalJKN += jkn; 
+                    totalPenerima += jml;
+
+                    const row = `<tr>
+                        <td><strong>${item["Jenis"]}</strong></td>
+                        <td class="txt-center">${item["triwulan"]}</td>
+                        <td>${item["Nomor SP2D"]}</td>
+                        <td>${formatDate(item["Tanggal SP2D"])}</td>
+                        <td class="txt-right">${bruto.toLocaleString('id-ID')}</td>
+                        <td class="txt-right">${pph.toLocaleString('id-ID')}</td>
+                        <td class="txt-right">${jkn.toLocaleString('id-ID')}</td>
+                        <td class="txt-right">${jml.toLocaleString('id-ID')}</td>
+                        <td class="txt-center">
+                            <button class="btn-hapus-small" onclick="goToDelete('${item.rowId}', '${item["Nomor SP2D"]}')">Hapus</button>
+                        </td>
+                    </tr>`;
+                    tbody.insertAdjacentHTML("beforeend", row);
+                });
+            }
+
+            // Update baris total di footer
+            document.getElementById("sumBruto").innerText = totalBruto.toLocaleString('id-ID');
+            document.getElementById("sumPPh").innerText = totalPPh.toLocaleString('id-ID');
+            document.getElementById("sumJKN").innerText = totalJKN.toLocaleString('id-ID');
+            document.getElementById("sumPenerima").innerText = totalPenerima.toLocaleString('id-ID');
+        }
+
+        function goToDelete(id, noSp2d) {
+            const tahun = document.getElementById("tahunFilter").value;
+            // Arahkan ke halaman hapus dengan parameter lengkap[cite: 1, 2]
+            location.href = `hapus.html?id=${id}&no=${noSp2d}&tahun=${tahun}`;
+        }
+
+        function formatDate(val) {
+            if(!val) return "-";
+            const d = new Date(val);
+            return isNaN(d) ? val : d.toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'});
+        }
+
+        function logout() {
+            sessionStorage.clear();
+            location.href = "login.html";
+        }
+
+        // Tampilkan data otomatis saat halaman dimuat
+        window.onload = loadData;
+    </script>
+</body>
+</html>

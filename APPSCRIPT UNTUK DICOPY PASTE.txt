@@ -1,0 +1,207 @@
+const SHEET_USER = "user";
+
+/* =========================
+   HELPER
+========================= */
+function json(data){
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function normalizeSp2d(s){
+  return String(s).trim().replace(/\s+/g,'');
+}
+
+/* =========================
+   ROUTER (GET)
+========================= */
+function doGet(e){
+  const mode = e.parameter.mode;
+
+  if(mode === "login") return login(e);
+  if(mode === "list") return getData(e);
+  if(mode === "get") return getBySp2d(e);
+  if(mode === "pagu") return getPagu(); 
+
+  return json({status:"invalid mode"});
+}
+
+/* =========================
+   ROUTER (POST)
+========================= */
+function doPost(e) {
+  let d;
+  
+  // Deteksi sumber data: JSON atau URLSearchParams (Parameter)
+  if (e.postData && e.postData.contents) {
+    try {
+      d = JSON.parse(e.postData.contents);
+    } catch (err) {
+      d = e.parameter;
+    }
+  } else {
+    d = e.parameter;
+  }
+
+  // Router Action berdasarkan parameter 'action' atau 'mode'
+  const action = d.action || d.mode || "insert";
+
+  if (action === "insert") return insertData(d);
+  if (action === "update") return updateData(d);
+  if (action === "delete") return deleteData(d);
+  if (action === "updatePagu") return updatePagu(d);
+
+  return json({status: "error", message: "Aksi " + action + " tidak dikenali"});
+}
+
+/* =========================
+   LOGIN
+========================= */
+function login(e){
+  const user = e.parameter.user;
+  const pass = e.parameter.pass;
+  const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_USER);
+  if(!sh) return json({status:"error", message:"Sheet user tidak ada"});
+
+  const data = sh.getDataRange().getValues();
+  for(let i=1; i<data.length; i++){
+    if(data[i][1].toString().trim() == user && data[i][2].toString().trim() == pass){
+      return json({ status:"ok", wewenang: data[i][0] });
+    }
+  }
+  return json({status:"fail"});
+}
+
+/* =========================
+   CARI ROW BERDASARKAN SP2D
+========================= */
+function findRowBySp2d(sh, sp2d){
+  if (!sp2d) return -1;
+  const data = sh.getDataRange().getValues();
+  const target = normalizeSp2d(sp2d);
+  for(let i=1; i<data.length; i++){
+    if(normalizeSp2d(data[i][2]) === target){
+      return i+1;
+    }
+  }
+  return -1;
+}
+
+/* =========================
+   GET DATA PENYALURAN
+========================= */
+function getData(e){
+  const tahun = e.parameter.tahun;
+  if(!tahun) return json({status:"error", message:"tahun wajib"});
+
+  const sh = SpreadsheetApp.getActive().getSheetByName(tahun);
+  if(!sh) return json({status:"error", message:"Sheet tahun " + tahun + " tidak ditemukan"});
+
+  const data = sh.getDataRange().getValues();
+  if(data.length < 2) return json({status:"ok", data: []});
+
+  const header = data.shift();
+  const result = data.map(r=>{
+    let obj = {};
+    header.forEach((h,i)=>obj[h]=r[i]);
+    obj.rowId = findRowBySp2d(sh, obj["Nomor SP2D"] || r[2]); 
+    return obj;
+  });
+  return json({status:"ok", data: result});
+}
+
+/* =========================
+   INSERT DATA PENYALURAN
+========================= */
+function insertData(d){
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName(d.tahun);
+  
+  if(!sh) {
+    sh = ss.insertSheet(d.tahun);
+    sh.appendRow(["Jenis", "triwulan", "Nomor SP2D", "Tanggal SP2D", "Bruto", "PPh", "Jkn", "Jml", "link"]);
+  }
+
+  const cek = findRowBySp2d(sh, d.nomorSp2d);
+  if(cek !== -1) return json({status:"error", message:"Nomor SP2D sudah ada!"});
+
+  sh.appendRow([
+    d.jenis, d.triwulan, d.nomorSp2d, d.tanggalSp2d,
+    Number(d.bruto) || 0, Number(d.pph) || 0, Number(d.jkn) || 0, Number(d.jml) || 0, d.link
+  ]);
+  return json({status:"ok", message:"Data berhasil disimpan"});
+}
+
+/* =========================
+   UPDATE & DELETE
+========================= */
+function deleteData(d){
+  const ss = SpreadsheetApp.getActive();
+  // Pastikan parameter tahun ada
+  const tahun = d.tahun; 
+  if(!tahun) return json({status:"error", message:"Parameter tahun tidak terdeteksi"});
+
+  const sh = ss.getSheetByName(tahun);
+  if(!sh) return json({status:"error", message:"Sheet tahun " + tahun + " tidak ditemukan"});
+
+  // 1. Coba cari berdasarkan rowId (pastikan dikonversi ke angka)
+  let row = -1;
+  if (d.rowId && !isNaN(d.rowId)) {
+    row = Number(d.rowId);
+  } 
+  
+  // 2. Jika rowId gagal/tidak ada, cari manual berdasarkan nomorSp2d
+  if (row <= 1) { 
+    row = findRowBySp2d(sh, d.nomorSp2d);
+  }
+
+  // 3. Validasi akhir sebelum hapus
+  if(row > 1){
+    sh.deleteRow(row);
+    return json({status:"ok", message:"Data pada baris " + row + " berhasil dihapus"});
+  } else {
+    return json({status:"error", message:"Data tidak ditemukan di sheet " + tahun + ". Periksa No SP2D: " + d.nomorSp2d});
+  }
+}
+
+/* =========================
+   PAGU: GET & UPDATE
+========================= */
+function getPagu(){
+  const sh = SpreadsheetApp.getActive().getSheetByName("pagu");
+  if(!sh) return json({status:"error", message:"Sheet pagu tidak ada"});
+  const data = sh.getDataRange().getValues();
+  const header = data.shift();
+  const result = data.map(r=>{
+    let obj = {};
+    header.forEach((h,i)=>obj[h]=r[i]);
+    return obj;
+  });
+  return json({status:"ok", data: result});
+}
+
+function updatePagu(d) {
+  const ss = SpreadsheetApp.getActive();
+  let sh = ss.getSheetByName("pagu");
+  if (!sh) return json({status: "error", message: "Sheet pagu tidak ada"});
+
+  const data = sh.getDataRange().getValues();
+  let rowToEdit = -1;
+
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0].toString() === d.tahun.toString()) {
+      rowToEdit = i + 1;
+      break;
+    }
+  }
+
+  const values = [d.tahun, Number(d.paguTPG), Number(d.paguTamsil), Number(d.paguTKG), new Date()];
+
+  if (rowToEdit !== -1) {
+    sh.getRange(rowToEdit, 1, 1, 5).setValues([values]);
+  } else {
+    sh.appendRow(values);
+  }
+  return json({status: "ok", message: "Pagu diperbarui"});
+}
