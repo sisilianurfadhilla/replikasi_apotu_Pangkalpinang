@@ -21,10 +21,10 @@ function showLoading() {
             </td>
         </tr>
     `;
-    sumBrutoCell.textContent = "0";
-    sumPPhCell.textContent = "0";
-    sumJknCell.textContent = "0";
-    sumJmlCell.textContent = "0";
+    if(sumBrutoCell) sumBrutoCell.textContent = "0";
+    if(sumPPhCell) sumPPhCell.textContent = "0";
+    if(sumJknCell) sumJknCell.textContent = "0";
+    if(sumJmlCell) sumJmlCell.textContent = "0";
 }
 
 // ============================
@@ -34,18 +34,36 @@ async function loadData() {
 
     showLoading();
 
+    // Ambil nilai filter dari halaman
     const jenis = document.getElementById("jenisFilter").value;
     const triwulan = document.getElementById("triwulanFilter").value;
     const tahun = document.getElementById("tahunFilter").value;
+    
+    // AMBIL WEWENANG DARI SESSION STORAGE
+    const wewenang = sessionStorage.getItem("wewenang");
 
-    const url = `${SCRIPT_URL}?action=getRincian&jenis=${jenis}&triwulan=${triwulan}&tahun=${tahun}`;
+    // Jika tidak ada session login, kembalikan ke halaman login
+    if (!wewenang) {
+        window.location.href = "login.html";
+        return;
+    }
+
+    // TAMBAHKAN PARAMETER WEWENANG KE URL
+    // Kita menggunakan mode=list agar sesuai dengan Apps Script yang kita buat sebelumnya
+    const url = `${SCRIPT_URL}?mode=list&jenis=${jenis}&triwulan=${triwulan}&tahun=${tahun}&wewenang=${encodeURIComponent(wewenang)}`;
 
     try {
         const response = await fetch(url);
         if (!response.ok) throw new Error("Gagal memuat data!");
 
-        const data = await response.json();
-        renderTable(data);
+        const result = await response.json();
+        
+        // Sesuaikan dengan format JSON dari Apps Script (data.data)
+        if (result.status === "ok") {
+            renderTable(result.data);
+        } else {
+            tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;">${result.message}</td></tr>`;
+        }
 
     } catch(err) {
         tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;color:red;">❌ Error memuat data!</td></tr>`;
@@ -67,7 +85,7 @@ function renderTable(data) {
     let sumBruto = 0, sumPPh = 0, sumJkn = 0, sumJml = 0;
 
     data.forEach(row => {
-
+        // Penyesuaian nama kolom sesuai Google Sheets kamu
         const tanggal = row["Tanggal SP2D"]
             ? new Date(row["Tanggal SP2D"]).toLocaleDateString("id-ID")
             : "-";
@@ -81,7 +99,7 @@ function renderTable(data) {
             <td>${formatNumber(row.Bruto)}</td>
             <td>${formatNumber(row.PPh)}</td>
             <td>${formatNumber(row.Jkn)}</td>
-            <td>${formatNumber(row.Jml)}</td>  <!-- FIXED: sudah memakai formatNumber -->
+            <td>${formatNumber(row.Jml)}</td>
             <td>
                 ${
                     row["Link Drive Penerima"] && row["Link Drive Penerima"].trim() !== "" 
@@ -99,10 +117,10 @@ function renderTable(data) {
 
     tbody.innerHTML = html;
 
-    sumBrutoCell.textContent = formatNumber(sumBruto);
-    sumPPhCell.textContent = formatNumber(sumPPh);
-    sumJknCell.textContent = formatNumber(sumJkn);
-    sumJmlCell.textContent = formatNumber(sumJml); // juga ditampilkan memakai format number
+    if(sumBrutoCell) sumBrutoCell.textContent = formatNumber(sumBruto);
+    if(sumPPhCell) sumPPhCell.textContent = formatNumber(sumPPh);
+    if(sumJknCell) sumJknCell.textContent = formatNumber(sumJkn);
+    if(sumJmlCell) sumJmlCell.textContent = formatNumber(sumJml);
 }
 
 // ============================
@@ -116,9 +134,13 @@ function formatNumber(num) {
 // LOAD OTOMATIS SAAT FILTER DIUBAH
 // ============================
 document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("tahunFilter").addEventListener("change", loadData);
-    document.getElementById("jenisFilter").addEventListener("change", loadData);
-    document.getElementById("triwulanFilter").addEventListener("change", loadData);
+    const filterTahun = document.getElementById("tahunFilter");
+    const filterJenis = document.getElementById("jenisFilter");
+    const filterTriwulan = document.getElementById("triwulanFilter");
+
+    if(filterTahun) filterTahun.addEventListener("change", loadData);
+    if(filterJenis) filterJenis.addEventListener("change", loadData);
+    if(filterTriwulan) filterTriwulan.addEventListener("change", loadData);
 
     loadData();
 });
