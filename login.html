@@ -1,209 +1,29 @@
 <!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - KPPN Pangkalpinang</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        body {
-            background-color: #f4f7f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .card {
-            background: white;
-            padding: 30px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 400px;
-        }
-        .page-title {
-            text-align: center;
-            font-size: 24px;
-            font-weight: bold;
-            color: #1d3557;
-            margin-bottom: 25px;
-        }
-        .input-group {
-            margin-bottom: 15px;
-        }
-        input, select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            font-size: 14px;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        input:focus, select:focus {
-            border-color: #1d3557;
-        }
-        .btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 10px;
-            transition: opacity 0.3s;
-        }
-        .btn-primary {
-            background-color: #1d3557;
-            color: white;
-        }
-        .btn-back {
-            background-color: #e63946;
-            color: white;
-        }
-        .btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-        #err {
-            color: #d62828;
-            background: #ffe3e3;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 13px;
-            text-align: center;
-            margin-bottom: 15px;
-            display: none;
-        }
-        .loader {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #ffffff;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
-</head>
+<html>
 <body>
+    <h2>Login Replikasi</h2>
+    <input type="text" id="user" placeholder="Username">
+    <input type="password" id="pass" placeholder="Password">
+    <button onclick="prosesLogin()">Login</button>
 
-<div class="card">
-    <div class="page-title">Login Untuk Pengelola</div>
-    
-    <div id="err"></div>
+    <script>
+        const API = "URL_WEB_APP_KAMU_DI_SINI"; // GANTI DENGAN URL DEPLOY TERBARU
 
-    <div class="input-group">
-        <input type="text" id="user" placeholder="Username">
-    </div>
-    <div class="input-group">
-        <input type="password" id="pass" placeholder="Password">
-    </div>
-    <div class="input-group">
-        <select id="tahun">
-            <option value="">Pilih Tahun</option>
-            <option value="2025">2025</option>
-            <option value="2026">2026</option>
-            <option value="2027">2027</option>
-            <option value="2028">2028</option>
-        </select>
-    </div>
+        async function prosesLogin() {
+            const u = document.getElementById("user").value;
+            const p = document.getElementById("pass").value;
+            
+            const resp = await fetch(`${API}?mode=login&user=${u}&pass=${p}`);
+            const hasil = await resp.json();
 
-    <button id="btnLogin" class="btn btn-primary" onclick="login()">Masuk</button>
-    <button class="btn btn-back" onclick="location.href='index.html'">Kembali</button>
-</div>
-
-<script>
-// URL API ini sudah sesuai dengan ID yang kamu lampirkan di code sebelumnya
-const API = "https://script.google.com/macros/s/AKfycbyLGHBFeMGDY5d7pJgW-wEwX-z_J2iwwyrldY3DeWDVnQ56KtsF7I2V2sDHHyhxg6W9/exec";
-
-window.onload = () => {
-    const th = new Date().getFullYear();
-    const el = document.getElementById("tahun");
-    if([...el.options].some(o => o.value == th)){
-        el.value = th;
-    }
-};
-
-function setLoading(state) {
-    const btn = document.getElementById("btnLogin");
-    if(state) {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="loader"></span> Sedang divalidasi...`;
-    } else {
-        btn.disabled = false;
-        btn.innerHTML = "Masuk";
-    }
-}
-
-async function login() {
-    const u = document.getElementById("user").value.trim();
-    const p = document.getElementById("pass").value.trim();
-    const t = document.getElementById("tahun").value;
-    const errDiv = document.getElementById("err");
-
-    errDiv.style.display = "none";
-
-    if(!u || !p) {
-        showErr("Isi username & password!");
-        return;
-    }
-    if(!t) {
-        showErr("Pilih tahun terlebih dahulu!");
-        return;
-    }
-
-    setLoading(true);
-
-    try {
-        const url = `${API}?mode=login&user=${encodeURIComponent(u)}&pass=${encodeURIComponent(p)}`;
-        const res = await fetch(url);
-        const data = await res.json();
-
-        if(data.status !== "ok") {
-            showErr("User atau password salah!");
-            setLoading(false);
-            return;
+            if(hasil.status === "ok") {
+                sessionStorage.setItem("logged", "yes");
+                sessionStorage.setItem("wewenang", hasil.wewenang);
+                window.location.href = "rincian.html";
+            } else {
+                alert("Login Gagal!");
+            }
         }
-
-        // SIMPAN SESSION (PENTING: Menggunakan 'wewenang' agar sinkron dengan Apps Script)
-        sessionStorage.setItem("logged", "yes");
-        sessionStorage.setItem("wewenang", data.wewenang); 
-        sessionStorage.setItem("tahun", t);
-
-        // REDIRECT BERDASARKAN WEWENANG
-        // Jika wewenang adalah "Semua" (Kasi), buka halaman yang ada grafiknya (rincian2.html)
-        // Selain itu (Bendahara Kabupaten), buka halaman tabel rincian (rincian.html)
-        if(data.wewenang === "Semua") {
-            window.location.href = "rincian2.html";
-        } else {
-            window.location.href = "rincian.html";
-        }
-
-    } catch(e) {
-        console.error(e);
-        showErr("Gagal terhubung ke server!");
-        setLoading(false);
-    }
-}
-
-function showErr(msg) {
-    const err = document.getElementById("err");
-    err.innerHTML = msg;
-    err.style.display = "block";
-}
-</script>
-
+    </script>
 </body>
 </html>
