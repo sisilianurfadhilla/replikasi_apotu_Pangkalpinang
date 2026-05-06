@@ -53,32 +53,38 @@ function doPost(e) {
 }
 
 /* =========================
-   LOGIN
+   LOGIN (DIPERBAIKI)
 ========================= */
 function login(e){
-  const user = e.parameter.user;
-  const pass = e.parameter.pass;
+  const user = (e.parameter.user || "").toString().trim().toLowerCase();
+  const pass = (e.parameter.pass || "").toString().trim();
   const sh = SpreadsheetApp.getActive().getSheetByName(SHEET_USER);
   if(!sh) return json({status:"error", message:"Sheet user tidak ada"});
 
   const data = sh.getDataRange().getValues();
   for(let i=1; i<data.length; i++){
-    if(data[i][1].toString().trim() == user && data[i][2].toString().trim() == pass){
-      return json({ status:"ok", wewenang: data[i][0] });
+    let userSheet = data[i][1].toString().trim().toLowerCase();
+    let passSheet = data[i][2].toString().trim();
+    
+    if(userSheet == user && passSheet == pass){
+      // Mengambil Wewenang dari Kolom A (indeks 0)
+      return json({ 
+        status: "ok", 
+        wewenang: data[i][0].toString().trim() 
+      });
     }
   }
   return json({status:"fail"});
 }
 
 /* =========================
-   CARI ROW BERDASARKAN SP2D (Posisi Kolom D / Indeks 3)
+   CARI ROW BERDASARKAN SP2D
 ========================= */
 function findRowBySp2d(sh, sp2d){
   if (!sp2d) return -1;
   const data = sh.getDataRange().getValues();
   const target = normalizeSp2d(sp2d);
   for(let i=1; i<data.length; i++){
-    // Kolom D = Indeks 3
     if(normalizeSp2d(data[i][3]) === target){
       return i+1;
     }
@@ -87,7 +93,7 @@ function findRowBySp2d(sh, sp2d){
 }
 
 /* =========================
-   GET DATA DENGAN FILTER KABUPATEN
+   GET DATA DENGAN FILTER (DIPERBAIKI)
 ========================= */
 function getData(e){
   const tahun = e.parameter.tahun;
@@ -106,13 +112,17 @@ function getData(e){
   // Filter data berdasarkan kolom 'kabupaten' (Kolom B / Indeks 1)
   const filteredData = data.filter(r => {
     if (!wewenang || wewenang === "Semua") return true;
-    return r[1].toString().trim().toLowerCase() === wewenang.toString().trim().toLowerCase();
+    
+    // Normalisasi teks agar tidak sensitif huruf besar/kecil atau spasi
+    let kabupatenSheet = String(r[1]).trim().toLowerCase();
+    let wewenangUser = String(wewenang).trim().toLowerCase();
+    
+    return kabupatenSheet === wewenangUser;
   });
 
   const result = filteredData.map(r=>{
     let obj = {};
     header.forEach((h,i)=>obj[h]=r[i]);
-    // Mencari baris asli untuk keperluan edit/hapus
     obj.rowId = findRowBySp2d(sh, obj["Nomor SP2D"] || r[3]); 
     return obj;
   });
@@ -121,7 +131,7 @@ function getData(e){
 }
 
 /* =========================
-   INSERT DATA (Kolom Sesuai Screenshot)
+   AKSI INSERT, UPDATE, DELETE, PAGU
 ========================= */
 function insertData(d){
   const ss = SpreadsheetApp.getActive();
@@ -150,9 +160,6 @@ function insertData(d){
   return json({status:"ok", message:"Data berhasil disimpan"});
 }
 
-/* =========================
-   UPDATE & DELETE (PAGU TETAP)
-========================= */
 function deleteData(d){
   const ss = SpreadsheetApp.getActive();
   const tahun = d.tahun; 
